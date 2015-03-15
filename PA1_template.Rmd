@@ -7,19 +7,126 @@ output:
 
 
 ## Loading and preprocessing the data
-
+```{r}
+#read in data file
+  data1 <- read.csv("./activity.csv")
+```
 
 
 ## What is mean total number of steps taken per day?
+```{r}
+#Summarize Steps by Date to a dataset called 't'
+t <- aggregate(steps ~ date, data=data1, FUN=sum)
+
+#Create histogram
+#Histogram of steps taken
+hist(t$steps,xlab = "Total Steps", main = "Total steps per day")
+```
+
+Calculate the mean and median steps taken per day
+```{r}
+##Summary Stats steps
+mean(t$steps)
+median(t$steps)
+```
 
 
 
 ## What is the average daily activity pattern?
+```{r}
+#Summarize Steps by Date & Interval
+t2 <- aggregate(steps ~ interval, data=data1, FUN=sum)
+
+#count number of days in data source
+uniq<- length(unique(data1$date))
+#61 days
+
+#create new variable with average steps
+t2$avgsteps <- t2$steps/uniq
 
 
+plot(t2$interval, t2$avgsteps, type="l",
+     ylab="Avg Steps", xlab="time",
+     main = "Steps in 5 Minute Increments")
+
+```
+
+
+Calculate time increment with maximum avg steps
+
+```{r}
+t2[which.max(t2$avgsteps),] 
+#835
+```
+
+The maximum occurs at interval 835
 
 ## Imputing missing values
 
+Determine number of missing values
+```{r}
+summary(data1)
+```
+
+2,304 records with NA
+
+####Impute missing data (NA) with the median values of steps at that specific interval
+```{r}
+#compute median step time for imputing
+step_med <- aggregate(steps ~ interval, data=data1, FUN=median)
+
+#change colnames
+colnames(step_med) <- c("interval","med_steps")
 
 
+library("plyr")
+library("dplyr")
+
+#Append median time by merging based on interval
+Joindata<-arrange(join(data1,step_med),interval)
+
+
+Joindata$steps[is.na(Joindata$steps)] <- Joindata$med_steps[is.na(Joindata$steps)]
+#remove column with median steps for imputing
+Joindata$med_steps <- NULL
+
+#Summarize Steps by Date
+Joindata_t <- aggregate(steps ~ date, data=Joindata, FUN=sum)
+```
+####Create histogram
+```{r}
+##Histogram of steps taken
+hist(Joindata_t$steps,xlab = "Total Steps", main = "Total steps per day (with Imputing)")
+
+mean(Joindata_t$steps)
+median(Joindata_t$steps)
+```
+
+After imputing the missing values, the mean and median shift down compared to before.
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+# convert date to class 
+Joindata$date <- as.Date(Joindata$date)
+
+# add a new column containing day of week
+Joindata$weekday = weekdays(Joindata$date)
+
+# factor containing either Weekday OR Weekend
+Joindata$weekday_class <- ifelse(Joindata$weekday == "Saturday" | Joindata$weekday == 
+                                 "Sunday", "Weekend", "Weekday")
+# convert column to factor
+Joindata$weekday_class <- factor(Joindata$weekday_class)
+
+#compute median step time for imputing
+step_wkd <- aggregate(steps ~ interval + weekday_class, data=Joindata, FUN=mean)
+
+
+library(lattice)
+
+xyplot(steps ~ interval | weekday_class, data = step_wkd, layout = c(1, 2), type = "l", 
+       ylab = "Avg number of steps", 
+       main = "Avg number of steps by Day Type")
+
+#The chart shows that the weekdays have one large spike of steps while the weekend has multiple spikes throughout the day.
+```
